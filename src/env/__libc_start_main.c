@@ -36,7 +36,7 @@ void __init_libc(char **envp, char *pn)
 	__progname = __progname_full = pn;
 	for (i=0; pn[i]; i++) if (pn[i]=='/') __progname = pn+i+1;
 
-	__init_tls(aux);
+	// __init_tls(aux);
 	__init_ssp((void *)aux[AT_RANDOM]);
 
 	if (aux[AT_UID]==aux[AT_EUID] && aux[AT_GID]==aux[AT_EGID]
@@ -86,8 +86,11 @@ int __libc_start_main(int (*main)(int,char **,char **), int argc, char **argv,
 	return stage2(main, argc, argv);
 }
 
-static int libc_start_main_stage2(int (*main)(int,char **,char **), int argc, char **argv)
+extern int main(int, char**, char**);
+
+static int libc_start_main_stage2(int (*_main)(int,char **,char **), int argc, char **argv)
 {
+    (void)_main;
 	char **envp = argv+argc+1;
 	__libc_start_init();
 
