@@ -1,6 +1,9 @@
+
+extern uintptr_t tp;
+
 static inline uintptr_t __get_tp()
 {
-    return 0;
+        return tp;
 	uintptr_t tp;
 	__asm__ ("movl %%gs:0,%0" : "=r" (tp) );
 	return tp;
