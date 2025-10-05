@@ -18,17 +18,13 @@
  */
 
 syscall_impl:
-    /* save regs */
-    push    %ebp
-    push    %edi
-    push    %esi
-    push    %ebx
+    pusha
 
-    movl    20(%esp), %eax    /* function -> eax */
-    movl    24(%esp), %ebx    /* parameter0 -> ebx */
-    movl    28(%esp), %ecx    /* parameter1 -> ecx */
-    movl    32(%esp), %edx    /* parameter2 -> edx */
-    movl    36(%esp), %esi    /* parameter3 -> esi */
+    movl    36(%esp), %eax    /* function -> eax */
+    movl    40(%esp), %ebx    /* parameter0 -> ebx */
+    movl    44(%esp), %ecx    /* parameter1 -> ecx */
+    movl    48(%esp), %edx    /* parameter2 -> edx */
+    movl    52(%esp), %esi    /* parameter3 -> esi */
 
     push    $end
     mov     %esp, %edi
@@ -36,11 +32,8 @@ syscall_impl:
     sysenter
 
 end:
-    /* restore saved regs */
-    pop     %ebx
-    pop     %esi
-    pop     %edi
-    pop     %ebp
+    movl    %eax, 28(%esp)
+    popa
     ret
 
     .size syscall_impl, .-syscall_impl
