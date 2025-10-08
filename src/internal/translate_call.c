@@ -107,6 +107,15 @@ int _stat_(const char *restrict path, struct stat *restrict buf) {
         return _fstat_(open_result, buf);
 }
 
+int _statx_(int fd, struct statx *restrict buf) {
+        struct stat stat;
+        int result =  _fstat_(fd, &stat);
+        buf->stx_size = stat.st_size;
+        buf->stx_blksize = stat.st_blksize;
+        buf->stx_blocks = stat.st_blocks;
+        return result;
+}
+
 int _pthread_create_(pthread_t *restrict thread,
                      const pthread_attr_t *restrict attr,
                      void *(*start_routine)(void *), void *restrict arg) {
@@ -236,6 +245,11 @@ long translate_call(long n, long a1, long a2, long a3, long a4, long a5,
                 return 0;
         case SYS_get_thread_area:
                 return tp;
+        case SYS_fstat:
+                return _fstat_(a1, PTR(a2));
+        case SYS_statx:
+                // DRAFT, can be way more complicated!
+                return _statx_(a1, PTR(a5));
         case 1:
                 return (long)syscall_impl(0, 0, 0, 0, 0);
         default:;
