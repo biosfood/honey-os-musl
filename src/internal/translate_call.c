@@ -11,6 +11,31 @@
 #include <unistd.h>
 #include <pthread.h>
 
+struct statx {
+        uint32_t stx_mask;
+        uint32_t stx_blksize;
+        uint64_t stx_attributes;
+        uint32_t stx_nlink;
+        uint32_t stx_uid;
+        uint32_t stx_gid;
+        uint16_t stx_mode;
+        uint16_t pad1;
+        uint64_t stx_ino;
+        uint64_t stx_size;
+        uint64_t stx_blocks;
+        uint64_t stx_attributes_mask;
+        struct {
+                int64_t tv_sec;
+                uint32_t tv_nsec;
+                int32_t pad;
+        } stx_atime, stx_btime, stx_ctime, stx_mtime;
+        uint32_t stx_rdev_major;
+        uint32_t stx_rdev_minor;
+        uint32_t stx_dev_major;
+        uint32_t stx_dev_minor;
+        uint64_t spare[14];
+};
+
 typedef enum {
         HONEY_SYS_RUN = 0,
         HONEY_SYS_FORK = 23,
@@ -24,6 +49,7 @@ typedef enum {
         HONEY_SYS_CLOSE = 32,
         HONEY_SYS_STAT = 33,
         HONEY_SYS_EXEC = 34,
+        HONEY_SYS_SET_GP = 35,
 } SyscallIds;
 
 // same as in kernel
@@ -241,10 +267,10 @@ long translate_call(long n, long a1, long a2, long a3, long a4, long a5,
         case SYS_close:
                 return _close_(a1);
         case SYS_set_thread_area:
-                tp = a1;
-                return 0;
+                return (long) syscall_impl(HONEY_SYS_SET_GP, a1, 0,0,0);
         case SYS_get_thread_area:
-                return tp;
+	        __asm__ ("movl %%gs:0,%0" : "=r" (tp) );
+                return (long)tp;
         case SYS_fstat:
                 return _fstat_(a1, PTR(a2));
         case SYS_statx:
