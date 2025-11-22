@@ -142,13 +142,6 @@ int _statx_(int fd, struct statx *restrict buf) {
         return result;
 }
 
-int _pthread_create_(pthread_t *restrict thread,
-                     const pthread_attr_t *restrict attr,
-                     void *(*start_routine)(void *), void *restrict arg) {
-        return (int)syscall_impl(HONEY_SYS_PTHREAD_CREATE, U32(thread),
-                                 U32(attr), U32(start_routine), U32(arg));
-}
-
 ssize_t _read_(const int filedes, void *buffer, size_t nbyte) {
         return (int)syscall_impl(HONEY_SYS_READ, filedes, U32(buffer), nbyte,
                                  0);
@@ -198,9 +191,8 @@ int _writev_(int fildes, const struct iovec *iov, int iovcnt) {
         return total;
 }
 
-int pthread_create(pthread_t *restrict thread, const pthread_attr_t *restrict attr,
-                          void *(*start_routine)(void *), void *restrict arg) {
-        return (int)syscall_impl(HONEY_SYS_PTHREAD_CREATE, U32(thread), U32(attr), U32(start_routine), U32(arg));
+int honeyos_pthread_create(void *stack, void *tls) {
+        return (int)syscall_impl(HONEY_SYS_PTHREAD_CREATE, U32(stack), U32(tls), 0, 0);
 }
 
 

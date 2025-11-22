@@ -234,6 +234,8 @@ static void init_file_lock(FILE *f)
 	if (f && f->lock<0) f->lock = 0;
 }
 
+extern int honeyos_pthread_create(void *stack, void *tls);
+
 int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict attrp, void *(*entry)(void *), void *restrict arg)
 {
 	int ret, c11 = (attrp == __ATTRP_C11_THREAD);
@@ -336,7 +338,15 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	struct start_args *args = (void *)stack;
 	args->start_func = entry;
 	args->start_arg = arg;
-	args->control = attr._a_sched ? 1 : 0;
+	args->control = 0;// attr._a_sched ? 1 : 0;
+
+        // honey-os specific stack setup
+        stack -= sizeof(uint32_t);
+        *(void**)stack = args;
+        stack -= sizeof(uint32_t);
+        *(void**)stack = 0;
+        stack -= sizeof(uint32_t);
+        *(void**)stack = (c11 ? start_c11 : start);
 
 	/* Application signals (but not the synccall signal) must be
 	 * blocked before the thread list lock can be taken, to ensure
@@ -352,7 +362,7 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 
 	__tl_lock();
 	if (!libc.threads_minus_1++) libc.need_locks = 1;
-	ret = __clone((c11 ? start_c11 : start), stack, flags, args, &new->tid, TP_ADJ(new), &__thread_list_lock);
+        ret = honeyos_pthread_create(stack, TP_ADJ(new));
 
 	/* All clone failures translate to EAGAIN. If explicit scheduling
 	 * was requested, attempt it before unlocking the thread list so
@@ -386,7 +396,8 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 		return -ret;
 	}
 
-	*res = new;
+        // Currently broken
+	// *res = new;
 	return 0;
 fail:
 	__release_ptc();
