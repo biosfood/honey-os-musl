@@ -1,15 +1,20 @@
 //
 // Created by lukas on 9/22/25.
 //
+#include "sys/wait.h"
+
 #include <fcntl.h>
+#include <pthread.h>
+#include <signal.h>
 #include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 #include <sys/stat.h>
 #include <sys/syscall.h>
 #include <sys/types.h>
 #include <sys/uio.h>
 #include <unistd.h>
-#include <pthread.h>
 
 struct statx {
         uint32_t stx_mask;
@@ -135,7 +140,7 @@ int _stat_(const char *restrict path, struct stat *restrict buf) {
 
 int _statx_(int fd, struct statx *restrict buf) {
         struct stat stat;
-        int result =  _fstat_(fd, &stat);
+        int result = _fstat_(fd, &stat);
         buf->stx_size = stat.st_size;
         buf->stx_blksize = stat.st_blksize;
         buf->stx_blocks = stat.st_blocks;
@@ -162,9 +167,7 @@ ssize_t _pwrite_(const int filedes, void *buffer, size_t nbyte, off_t offset) {
                                  offset);
 }
 
-pid_t _fork_() {
-        return (int)syscall_impl(HONEY_SYS_FORK, 0, 0, 0, 0);
-}
+pid_t _fork_() { return (int)syscall_impl(HONEY_SYS_FORK, 0, 0, 0, 0); }
 
 int _open_(const char *path, const int oflag, ...) {
         int retval = (int)syscall_impl(HONEY_SYS_OPEN, U32(path), oflag, 0, 0);
@@ -192,9 +195,9 @@ int _writev_(int fildes, const struct iovec *iov, int iovcnt) {
 }
 
 int honeyos_pthread_create(void *stack, void *tls) {
-        return (int)syscall_impl(HONEY_SYS_PTHREAD_CREATE, U32(stack), U32(tls), 0, 0);
+        return (int)syscall_impl(HONEY_SYS_PTHREAD_CREATE, U32(stack), U32(tls),
+                                 0, 0);
 }
-
 
 int _execve_(const char *path, char *const argv[], char *const env[]) {
         (void)argv;
@@ -213,7 +216,7 @@ typedef struct {
 } __attribute__((packed)) MmapArgs;
 
 void *_mmap_(void *addr, const size_t len, const int prot, const int flags,
-           const int fildes, const off_t off) {
+             const int fildes, const off_t off) {
         if (!len) {
                 return NULL;
         }
@@ -223,6 +226,35 @@ void *_mmap_(void *addr, const size_t len, const int prot, const int flags,
 
 int _munmap_(void *addr, size_t len) {
         return (int)syscall_impl(HONEY_SYS_MUNMAP, U32(addr), len, 0, 0);
+}
+
+int _waitid_(idtype_t t, pid_t pid, siginfo_t *info, int options, void *kru) {
+        if (t == P_PGID) {
+                info->si_pid = pid;
+                info->si_code = CLD_DUMPED;
+                char filename[100];
+                snprintf(filename, sizeof(filename) - 1, "/proc/%i/status",
+                         pid);
+                int fd = _open_(filename, O_RDONLY);
+                _read_(fd, &info->si_status, 4);
+                _close_(fd);
+        }
+        return 0;
+}
+
+int _wait4_(pid_t pid, int *status, int options, struct rusage *ru) {
+        char filename[100];
+        snprintf(filename, sizeof(filename) - 1, "/proc/%i/status", pid);
+        int fd = _open_(filename, O_RDONLY);
+        _read_(fd, status, 4);
+        _close_(fd);
+        return 0;
+}
+
+void _exit_(int status) {
+        int fd = _open_("/proc/self/status", O_RDONLY);
+        _write_(fd, &status, 4);
+        _close_(fd);
 }
 
 uintptr_t tp;
@@ -252,24 +284,30 @@ long translate_call(long n, long a1, long a2, long a3, long a4, long a5,
         case SYS_mkdir:
                 return _mkdir_(PTR(a1), a2);
         case SYS_mknod:
-                if (a2&S_IFIFO) {
+                if (a2 & S_IFIFO) {
                         return _create_(PTR(a1), FILE_TYPE_FIFO);
                 }
                 break;
         case SYS_close:
                 return _close_(a1);
         case SYS_set_thread_area:
-                return (long) syscall_impl(HONEY_SYS_SET_GP, a1, 0,0,0);
+                return (long)syscall_impl(HONEY_SYS_SET_GP, a1, 0, 0, 0);
         case SYS_get_thread_area:
-	        __asm__ ("movl %%gs:0,%0" : "=r" (tp) );
+                __asm__("movl %%gs:0,%0" : "=r"(tp));
                 return (long)tp;
         case SYS_fstat:
                 return _fstat_(a1, PTR(a2));
         case SYS_statx:
                 // DRAFT, can be way more complicated!
                 return _statx_(a1, PTR(a5));
-        case 1:
-                return (long)syscall_impl(0, 0, 0, 0, 0);
+        case SYS_waitid:
+                return _waitid_(a1, a2, PTR(a3), a4, PTR(a5));
+        case SYS_wait4:
+                return _wait4_(a1, PTR(a2), a3, PTR(a4));
+        case SYS_exit:
+        case SYS_exit_group:
+                _exit_(a1);
+                return 0;
         default:;
         }
         return 0;
