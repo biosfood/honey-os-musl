@@ -96,7 +96,7 @@ int _create_(const char *_path, int type) {
         strcpy(path, _path);
         uint32_t last_slash_position = get_last_slash_position(path);
         if (last_slash_position == 0) {
-                int fd = _open_("/", 0);
+                int fd = _open_("/", O_SEARCH);
                 if (fd < 0) {
                         return -1;
                 }
@@ -106,7 +106,7 @@ int _create_(const char *_path, int type) {
                 return result;
         }
         path[last_slash_position] = 0;
-        int fd = _open_(path, 0);
+        int fd = _open_(path, O_SEARCH);
         path[last_slash_position] = '/';
         if (fd < 0) {
                 return -1;
@@ -252,7 +252,7 @@ int _wait4_(pid_t pid, int *status, int options, struct rusage *ru) {
 }
 
 void _exit_(int status) {
-        int fd = _open_("/proc/self/status", O_RDONLY);
+        int fd = _open_("/proc/self/status", O_WRONLY);
         _write_(fd, &status, 4);
         _close_(fd);
 }
