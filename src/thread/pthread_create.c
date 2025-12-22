@@ -1,4 +1,6 @@
 #define _GNU_SOURCE
+#include <fcntl.h>
+#include <unistd.h>
 #include "pthread_impl.h"
 #include "stdio_impl.h"
 #include "libc.h"
@@ -165,11 +167,13 @@ _Noreturn void __pthread_exit(void *result)
 		__unmapself(self->map_base, self->map_size);
 	}
 
-	/* Wake any joiner. */
-	a_store(&self->detach_state, DT_EXITED);
-	__wake(&self->detach_state, 1, 1);
-
-	for (;;) __syscall(SYS_exit, 0);
+        int fd = open("/proc/self/threads/self/status", O_WRONLY);
+        // does not return
+        write(fd, &result, 4);
+        close(fd);
+        for (;;) {
+                exit(-1);
+        }
 }
 
 void __do_cleanup_push(struct __ptcb *cb)
@@ -242,9 +246,9 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	size_t size, guard;
 	struct pthread *self, *new;
 	unsigned char *map = 0, *stack = 0, *tsd = 0, *stack_limit;
-	unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND
-		| CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS
-		| CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
+	//unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND
+	//	| CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS
+	//	| CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
 	pthread_attr_t attr = { 0 };
 	sigset_t set;
 
@@ -396,8 +400,7 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 		return -ret;
 	}
 
-        // Currently broken
-	// *res = new;
+	*res = new;
 	return 0;
 fail:
 	__release_ptc();
