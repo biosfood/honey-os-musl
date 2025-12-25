@@ -246,10 +246,11 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	size_t size, guard;
 	struct pthread *self, *new;
 	unsigned char *map = 0, *stack = 0, *tsd = 0, *stack_limit;
-	//unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND
-	//	| CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS
-	//	| CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID | CLONE_DETACHED;
-	pthread_attr_t attr = { 0 };
+        unsigned flags = CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SIGHAND |
+                         CLONE_THREAD | CLONE_SYSVSEM | CLONE_SETTLS |
+                         CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID |
+                         CLONE_DETACHED;
+        pthread_attr_t attr = { 0 };
 	sigset_t set;
 
 	if (!libc.can_do_threads) return ENOSYS;
@@ -367,6 +368,7 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	__tl_lock();
 	if (!libc.threads_minus_1++) libc.need_locks = 1;
         ret = honeyos_pthread_create(stack, TP_ADJ(new));
+        new->tid = ret;
 
 	/* All clone failures translate to EAGAIN. If explicit scheduling
 	 * was requested, attempt it before unlocking the thread list so
