@@ -259,6 +259,27 @@ void _exit_(int status) {
 
 uintptr_t tp;
 
+extern int _end; 
+
+long _brk_(long addr) {
+        static long current_brk = 0;
+        
+        if (current_brk == 0) {
+                // Initialize the break to the page boundary immediately after your program
+                current_brk = (((long)&_end) + 0xFFF) & ~0xFFF;
+        }
+
+        // If musl is just asking for the current break (addr == 0), return it.
+        if (addr == 0) {
+                return current_brk;
+        }
+
+        // If musl asks to GROW the heap, we just return the current, unchanged break.
+        // In Linux semantics, returning the old break means "Out of Memory / Allocation Failed".
+        // This will instantly trick musl into routing all malloc() calls to your _mmap_ shim!
+        return current_brk;
+}
+
 long translate_call(long n, long a1, long a2, long a3, long a4, long a5,
                     long a6) {
         switch (n) {
@@ -308,6 +329,8 @@ long translate_call(long n, long a1, long a2, long a3, long a4, long a5,
         case SYS_exit_group:
                 _exit_(a1);
                 return 0;
+        case SYS_brk:
+                return _brk_(a1);
         default:;
         }
         return 0;
