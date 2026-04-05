@@ -346,7 +346,9 @@ int __pthread_create(pthread_t *restrict res, const pthread_attr_t *restrict att
 	args->control = 0;// attr._a_sched ? 1 : 0;
 
         // honey-os specific stack setup
-        stack -= sizeof(uint32_t);
+        // making sure we stay aligned to 16-byte boundaries
+        stack = (unsigned char *)((uintptr_t)stack & ~0xF);
+        stack -= 16;
         *(void**)stack = args;
         stack -= sizeof(uint32_t);
         *(void**)stack = 0;
